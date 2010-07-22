@@ -1,0 +1,18 @@
+Name:                sasholib
+Version:             0.1.0
+Description:         Alexander Iliev's misc small Haskell utilities
+License:             BSD
+License-file:        LICENSE
+Author:              Alexander Iliev
+Maintainer:          alex DOT iliev AT gmail DOT com
+Build-Type:          Simple
+Cabal-Version:       >=1.2
+
+Library
+  Build-Depends:     haskell98,
+                     base >= 3 && < 5,
+                     containers,
+                     mtl,
+                     parsec
+  Exposed-modules:   SashoLib
+                     Parsec
