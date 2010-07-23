@@ -1,4 +1,4 @@
-Name:                sasholib
+Name:                ilievutils
 Version:             0.1.0
 Description:         Alexander Iliev's misc small Haskell utilities
 License:             BSD
@@ -14,5 +14,5 @@ Library
                      containers,
                      mtl,
                      parsec
-  Exposed-modules:   SashoLib
-                     Parsec
+  Exposed-modules:   IlievUtils.Misc
+                     IlievUtils.Parsec
