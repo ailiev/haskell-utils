@@ -1,6 +1,6 @@
 {-# LANGUAGE OverlappingInstances, MultiParamTypeClasses #-}
 
-module SashoLib (
+module IlievUtils.Misc (
 		 (.&&),
                  (.||),
 		 (.*),

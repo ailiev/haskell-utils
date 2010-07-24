@@ -2,7 +2,7 @@
 -- Parsec stuff
 -- 
 
-module Parsec (
+module IlievUtils.Parsec (
                maybeParse,
                withOptionalPrefix
               )
@@ -10,7 +10,7 @@ where
 
 
 import Text.ParserCombinators.Parsec as P (try, (<|>), option)
-import SashoLib
+import IlievUtils.Misc
 
 -- parse rule p and place the result in a Maybe (Nothing if it failed)
 maybeParse p = P.option Nothing (P.try p >>== Just)
