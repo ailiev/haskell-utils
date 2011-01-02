@@ -1,4 +1,4 @@
-{-# LANGUAGE OverlappingInstances, MultiParamTypeClasses #-}
+{-# LANGUAGE OverlappingInstances, MultiParamTypeClasses, TypeSynonymInstances #-}
 
 module IlievUtils.Misc (
 		 (.&&),
@@ -75,7 +75,12 @@ module IlievUtils.Misc (
         sumM,
         concatMapM,
 
+        mapAccumDupsBy,
+        extractOne,
+
         strictList,
+        strictEval,
+
         iterateList,
 
 		 factorial,
@@ -89,12 +94,19 @@ module IlievUtils.Misc (
                 tup4_get1, tup4_get2, tup4_get3, tup4_get4, 
                 tup4_proj_1,  tup4_proj_2,  tup4_proj_3,  tup4_proj_4,
 
-                tup5_get1
+                tup5_get1,
+
+                expand,
+                proj_tup2,
+                StreamShow(..),
+                (<<),
+
+                DocAble(..),
 
 		)
     where
 
-import List (isPrefixOf, union, intersperse)
+import List (isPrefixOf, union, intersperse, mapAccumL, partition)
 
 import Monad (MonadPlus, mzero, mplus, msum, liftM)
 
@@ -106,6 +118,7 @@ import Numeric                      (showHex)
 
 import qualified Data.Map as Map
 
+import qualified    Text.PrettyPrint            as PP
 
 
 
@@ -147,7 +160,6 @@ notp :: (a -> Bool) -> (a -> Bool)
 notp f = not . f
 
 
-{-
 -- operator to build strings
 
 -- first a cousin of the Show class specially for this purpose
@@ -164,6 +176,7 @@ instance StreamShow String where
 
 instance StreamShow Int     where strShows = showsPrec 0
 instance StreamShow Integer where strShows = showsPrec 0
+instance StreamShow Bool    where strShows = showsPrec 0
 
 
 instance (StreamShow a) => StreamShow [a] where
@@ -178,8 +191,6 @@ instance (StreamShow a, StreamShow b) => StreamShow (a,b) where
 (<<) :: (StreamShow a, StreamShow b) => (a -> b -> String)
 x << y = strShow x ++ strShow y
 --    where cleanup = (filter ((/= '"')))
-
--}
 
 
 
@@ -276,6 +287,37 @@ sumM = myLiftM sum
 concatMapM :: (Monad m) => (a -> m [b]) -> [a] -> m [b]
 concatMapM f = (liftM concat) . mapM f
 
+-- | mapAccum a function on equivalent values in a list, presumably to make them
+-- different via numbering or such. 'f' will be applied to the first instance of every
+-- value too, with 'start' as the accumulator value.
+mapAccumDupsBy :: (a -> a -> Bool)
+               -> (acc_t -> a -> (acc_t,b))
+               -> acc_t
+               -> [a]
+               -> [b]
+mapAccumDupsBy eq f start xs = snd $ mapAccumL g [] xs
+-- the accumulator is an assoc list of type (a, acc_t)
+    where -- g :: [(a, acc_t)] -> a -> ( [(a, acc_t)], a )
+          g accums x = let (mb_accum, rest) = extractOne (eq x . fst) accums
+                           (acc_val', y)    = maybe (f start x)
+                                                    (\acc -> f (snd acc) x)
+                                                    mb_accum
+                           in
+                             ((x,acc_val') : rest, -- new accumulator
+                              y -- new list element
+                             )
+
+-- | extract one of a list's elements, which matches some predicate; and the rest of the
+-- list.
+extractOne :: (a -> Bool) -> [a] -> (Maybe a, [a])
+extractOne   p  xs = let (matches, rest) = partition p xs
+                     in
+                       case matches of
+                         []            -> (Nothing, xs)
+                         [m]           -> (Just m, rest)
+                         (m1:m_rest)   -> (Just m1, m_rest++rest)
+
+
 -- substitute a sublist for another list
 tr :: (Eq a) => ([a],[a]) -> [a] -> [a]
 tr _         [] = []
@@ -297,6 +339,8 @@ strictList :: [a] -> [a]
 strictList ls@(a : more) = seq a $ seq (strictList more) $ ls
 strictList ls = ls
 
+-- | force a strict evaluation of a value, returning it
+strictEval x = x `seq` x
 
 -- apply f to (Maybe x), using def if x is Nothing
 applyWithDefault :: (a -> a) -> a -> Maybe a -> a
@@ -505,6 +549,9 @@ mapTupleM2 f (x,y) = do x' <- f x
                         y' <- f y
                         return (x', y')
 
+-- | turn a pair of functions to a function on pairs
+proj_tup2 (f,g) (x,y) = (f x, g y)
+
 
 -- project a function onto members of a pair
 projFst f (x,y) = (f x, y  )
@@ -596,3 +643,13 @@ tup4_proj_2 f (x1,x2,x3,x4) = (x1  , f x2, x3  , x4  )
 tup4_proj_3 f (x1,x2,x3,x4) = (x1  , x2  , f x3, x4  )
 tup4_proj_4 f (x1,x2,x3,x4) = (x1  , x2  , x3  , f x4)
 
+-- | Take an assoc list of (key, values), and expand it to a (longer) list of
+-- (key,value), where each 'values' has been expanded to one value per element.
+expand :: [(a, [b])] -> [(a,b)]
+-- use foldr to avoid quadratic blowup with (++)
+expand xs = foldr f [] xs
+    where f (a,bs) dones = [(a,b) | b <- bs] ++ dones
+
+-- | class of types which are convertable to a Doc for pretty-printing.
+class DocAble a where
+    doc     :: a -> PP.Doc
