@@ -1,7 +1,7 @@
 Name:                ilievutils
 Version:             0.1.0
 Description:         Alexander Iliev's misc small Haskell utilities
-License:             BSD
+License:             BSD3
 License-file:        LICENSE
 Author:              Alexander Iliev
 Maintainer:          alex DOT iliev AT gmail DOT com
@@ -13,6 +13,8 @@ Library
                      base >= 3 && < 5,
                      containers,
                      mtl,
-                     parsec
+                     parsec,
+                     hslogger
   Exposed-modules:   IlievUtils.Misc
                      IlievUtils.Parsec
+                     IlievUtils.Logging
