@@ -1,5 +1,4 @@
-{-# OPTIONS_GHC -fglasgow-exts -fallow-overlapping-instances #-}
--- -fglasgow-exts: for parallel list comprehension
+{-# LANGUAGE OverlappingInstances, FlexibleInstances, TypeSynonymInstances, ParallelListComp #-}
 
 --
 -- Circuit compiler for the Faerieplay hardware-assisted secure
@@ -15,7 +14,7 @@
 --
 
 
-module Faerieplay.UDraw (
+module IlievUtils.UDraw (
               Term
              , makeTerm
              , TermId
@@ -24,9 +23,9 @@ module Faerieplay.UDraw (
     where
 
 
-import              Faerieplay.SashoLib
-import              Faerieplay.Common               (trace)
-import qualified    Faerieplay.GraphLib             as GrLib
+import              IlievUtils.Misc
+import              IlievUtils.Logging              (trace)
+import qualified    IlievUtils.GraphLib             as GrLib
 
 
 import              Maybe                           (maybeToList, fromJust, isJust)
@@ -155,7 +154,7 @@ doTerm mb_term terms = Trace.trace ("doTerm " ++ show mb_term ++ ", " ++ show te
                        maybeToList mb_term ++ terms
 
 
-numberDups = mapAccumDupsBy ((==) `comp2_1` tid . Tree.rootLabel) addNum 0
+numberDups = mapAccumDupsBy ((==) `comp2_1` (tid . Tree.rootLabel)) addNum 0
     where addNum n t@(Tree.Node l@(L {tid = EdgeId (s,d,0)}) subs)
               | n > 0       = ( n+1, (Tree.Node (l {tid = EdgeId (s,d,n)}) subs) )
               | otherwise   = ( n+1, t )

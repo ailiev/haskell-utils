@@ -14,8 +14,12 @@ Library
                      containers,
                      mtl,
                      parsec,
-                     hslogger
+                     hslogger,
+                     fgl,
+                     pretty
   Exposed-modules:   IlievUtils.Misc
                      IlievUtils.Parsec
                      IlievUtils.Logging
                      IlievUtils.TreeLib
+                     IlievUtils.GraphLib
+                     IlievUtils.UDraw

@@ -1,5 +1,4 @@
-{-# OPTIONS_GHC -fglasgow-exts -fallow-overlapping-instances #-}
--- -fglasgow-exts: for parallel list comprehension
+{-# LANGUAGE OverlappingInstances, FlexibleInstances, ParallelListComp #-}
 
 --
 -- Circuit compiler for the Faerieplay hardware-assisted secure
@@ -15,7 +14,7 @@
 --
 
 
-module Faerieplay.GraphLib
+module IlievUtils.GraphLib
 (
  contexts,
  start_ctxs,
@@ -44,12 +43,12 @@ import qualified Data.Graph.Inductive.Tree      as TreeGr
 import qualified Data.Graph.Inductive.Query.DFS as GrDFS
 import qualified Data.Graph.Inductive.Query.BFS as GrBFS
 
-import Faerieplay.SashoLib                      (comp2_1,expand,proj_tup2,(<<),
+import IlievUtils.Misc                          (comp2_1,expand,proj_tup2,(<<),
                                                 StreamShow(..), strictEval)
 
-import qualified Faerieplay.TreeLib             as TreeLib
+import qualified IlievUtils.TreeLib             as TreeLib
 
-import Faerieplay.Common                        (trace)
+import IlievUtils.Logging                       (trace)
 
 
 
