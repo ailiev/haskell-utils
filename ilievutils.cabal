@@ -18,3 +18,4 @@ Library
   Exposed-modules:   IlievUtils.Misc
                      IlievUtils.Parsec
                      IlievUtils.Logging
+                     IlievUtils.TreeLib

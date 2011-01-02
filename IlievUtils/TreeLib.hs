@@ -11,7 +11,7 @@
 -- Please see LICENSE.txt for the full license and disclaimers.
 --
 
-module Faerieplay.TreeLib where
+module IlievUtils.TreeLib where
 
 import qualified Data.Tree                      as Tree
 
