@@ -69,10 +69,14 @@ module IlievUtils.Misc (
         tuple2list2,
 
         myLiftM,
+        liftArgM,
         scanM,
         unfoldrM,
         replicateM,
         sumM,
+        iterateWhileM,
+        takeWhileM,
+        repeatM,
         concatMapM,
 
         mapAccumDupsBy,
@@ -103,10 +107,31 @@ module IlievUtils.Misc (
 
                 DocAble(..),
 
+                splice,
+                spliceInIf,
+                updateSome,
+                mapSplice,
+                sublist,
+                modifyFirst,
+                split,
+                joinLists,
+                getBits,
+                bitMask,
+
+compareWith,
+nubOrds,
+mapAccumDupsBy,
+extractOne,
+
+                bool2int,
+                int2bool
+
 		)
     where
 
-import List (isPrefixOf, union, intersperse, mapAccumL, partition)
+import List (isPrefixOf, union, intersperse, mapAccumL, partition, group, sort)
+
+import Maybe                                    (isNothing, fromJust)
 
 import Monad (MonadPlus, mzero, mplus, msum, liftM)
 
@@ -115,6 +140,9 @@ import Control.Monad.Error (Error, noMsg, ErrorT, runErrorT, MonadError(..))
 import Control.Monad.Trans (MonadTrans, lift)
 
 import Numeric                      (showHex)
+
+import Data.Bits            ((.&.))
+import qualified Data.Bits                      as Bits
 
 import qualified Data.Map as Map
 
@@ -275,6 +303,38 @@ unfoldrM f x  = do maybe_res <- f x
 replicateM :: (Monad m) => Int -> m a -> m [a]
 replicateM = sequence ... replicate
 
+-- | iterate a monadic function infinitely.
+-- not very useful as monadically produced lists seem to be usually not lazy.
+iterateM :: (Monad m) => (a -> m a) -> a -> m [a]
+iterateM f x = do y     <- f x
+                  zs    <- iterateM f y
+                  return (y:zs)
+
+-- | iterate a monadic function while a predicate holds
+iterateWhileM :: (Monad m) => (a -> m Bool) -> (a -> m a) -> a -> m [a]
+iterateWhileM p f x     = do p_val  <- p x
+                             if p_val
+                              then do y    <- f x
+                                      rest <- iterateWhileM p f y
+                                      return (y:rest)
+                              else return []
+
+-- | take the prefix of a list while elements satisfy a monadic predicate.
+takeWhileM :: (Monad m) => (a -> m Bool) -> [a] -> m [a]
+takeWhileM p (x:xs)     = do p_val  <- p x
+                             if p_val
+                              then do rest <- takeWhileM p xs
+                                      return (x:rest)
+                              else return []
+takeWhileM _ []         = return []
+
+
+-- | repeat a monadic action to infinity.
+repeatM :: (Monad m) => m a -> m [a]
+repeatM = sequence . repeat
+
+
+
 {-
 fooM :: (Monad m) => (a -> m b) -> [m a] -> m [b]
 fooM f xs = 
@@ -286,6 +346,38 @@ sumM = myLiftM sum
 
 concatMapM :: (Monad m) => (a -> m [b]) -> [a] -> m [b]
 concatMapM f = (liftM concat) . mapM f
+
+-- remove duplicates in a list of Ord instance (ie. can be sorted); should be
+-- much more efficient than List.nub, which is O(n^2)
+nubOrds :: (Ord a) => [a] -> [a]
+nubOrds = map head . List.group . List.sort
+
+{-
+-- set difference for Ord instances, using a Map
+diffOrds :: (Ord a) => [a] -> [a] -> [a]
+diffOrds x y    = let [x', y'] = map sort [x, y]
+ -}                    
+
+
+compareWith f x y = compare (f x) (f y)
+
+
+-- apply a function to all second and further instances of an item in a list, with a given
+-- equality predicate
+{-
+mapDupsBy :: (a -> a -> Bool) -> (a -> a) -> [a] -> [a]
+mapDupsBy eq f xs = let (ys, _) = foldl g ([],[]) xs
+                    in
+                      reverse ys
+    where g (ys, uniqs) x = let (y, uniqs') = if any (eq x) uniqs -- have already seen x
+                                              then (f x, uniqs)
+                                              else (x  , x:uniqs)
+                            in
+                              (y:ys, -- this is efficient, but will build the list in
+                                     -- reverse
+                               uniqs')
+-}
+
 
 -- | mapAccum a function on equivalent values in a list, presumably to make them
 -- different via numbering or such. 'f' will be applied to the first instance of every
@@ -390,6 +482,12 @@ findInStack f stack = msum (map f stack)
 -- REMINDER: we have in Control.Monad.Error:
 -- instance (Error e) => MonadPlus (Either e) where ...
 
+
+-- | lift a function which injects into a Monad into one which has input and result in the
+-- Monad. Have used it on mapM.
+liftArgM :: (Monad m) => (a -> m b) -> (m a -> m b)
+liftArgM f m_x = do x <- m_x
+                    f x
 
 
 -- lift a function into a monad. The difference from liftM is that the result of myLiftM
@@ -584,6 +682,102 @@ splice (offset,len) news l = (take offset l) ++
                              (drop (offset + len) l)
 
 
+-- update a range (offset and length) of a list.
+-- more precisely, replace the range (offset,len) with 'news' (regardless of its length)
+splice (offset,len) news l = (take offset l) ++
+                             news ++
+                             (drop (offset + len) l)
+
+
+-- | Splice in new values into a list (using a modifier function) where some predicate
+-- succeeds; if predicate fails, apply another function.
+spliceInIf :: (a -> Bool)       -- ^ Do we splice in at this element?
+           -> (a -> c -> b)     -- ^ Function used to update the value with a new one
+           -> (a -> b)          -- ^ Function to apply if predicate false
+           -> [c]               -- ^ The new values, should be as many as predicate
+                                -- returns True on
+           -> [a]               -- ^ The list
+           -> [b]
+
+spliceInIf p f g ns (x:xs)
+    | p x       = case ns of (n:ns')    -> f x n : recurse ns' xs
+                             []         -> error "spliceInIf: ran out of replacement values"
+    | otherwise = g x : recurse ns xs
+    where recurse = spliceInIf p f g
+spliceInIf _ _ _ ns []  = case ns of [] -> []
+                                     _  -> error "WARNING: spliceInIf had replacements left over at the end" []
+
+
+-- | Update some of a list's elements, which pass a predicate, with a list of replacement
+-- values.
+updateSome :: (a -> Bool)       -- ^ Which elements to replace?
+           -> [a]               -- ^ The replacement values
+           -> [a]               -- ^ The list
+           -> [a]
+updateSome p = spliceInIf p (\old new -> new) id
+
+
+
+
+-- map a function onto a sublist of a list, and another function on the rest.
+mapSplice :: (a -> b)           -- ^ map onto the sublist
+          -> (a -> b)           -- ^ map onto the rest
+          -> (Int,Int)          -- ^ the sublist location; offset and length.
+          -> [a]                -- ^ the list
+          -> [b]
+mapSplice f g (offset,len) l = let before = take offset l
+                                   during = take len $ drop offset l
+                                   after  = drop (offset + len) l
+                               in  map g before ++ map f during ++ map g after
+
+                               
+
+
+
+sublist off len = take len . drop off
+
+
+-- | modify a list at the first element where a Maybe function succeeds; leave all
+-- other elements the same.
+-- returns Nothing if f fails everywhere.
+modifyFirst :: (a -> Maybe a) -> [a] -> Maybe [a]
+modifyFirst f xs =  let xsys            = zip xs (map f xs)
+                        (part1,part2)   = span (isNothing . snd) xsys
+                    in  if null part2
+                        then Nothing
+                        else Just $ map fst part1 ++
+                                    [fromJust . snd . head $ part2] ++
+                                    map fst (tail part2)
+
+-- | Split a list at some separator element. like a parametrized 'lines'.
+split :: (Eq a) => a -> [a] -> [[a]]
+split sep s = let (l, s') = break (== sep) s
+              in  l : case s' of
+                        []      -> []
+                        (_:s'') -> split sep s''
+
+-- | join a list of lists with some separator
+joinLists :: [a] -> [[a]] -> [a]
+joinLists sep xs = concat $ intersperse sep xs
+
+
+
+
+--
+-- some bit manipulation routines.
+--
+
+-- | Get the value of a range of bits (inclusive) in an instance of Bits.
+getBits :: Bits.Bits i => i -> (Int,Int) -> i
+i `getBits` (a,b) = ( i .&. (bitMask (a,b)) ) `Bits.shiftR` a
+
+-- | Get a bitmask for a range of bits (inclusive)
+bitMask :: Bits.Bits i => (Int,Int) -> i
+bitMask (i,j)     = ( Bits.complement ((Bits.complement 0) `Bits.shiftL` (j-i+1)) )  `Bits.shiftL` i
+
+
+
+
 -- make a list from a tuple
 tuple2list2 (x,y) = [x,y]
 
@@ -653,3 +847,9 @@ expand xs = foldr f [] xs
 -- | class of types which are convertable to a Doc for pretty-printing.
 class DocAble a where
     doc     :: a -> PP.Doc
+
+bool2int :: (Integral b) => Bool -> b
+bool2int = fromIntegral . fromEnum
+
+int2bool :: (Integral a) => a -> Bool
+int2bool = toEnum . fromIntegral
