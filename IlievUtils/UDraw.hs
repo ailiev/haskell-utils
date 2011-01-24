@@ -74,14 +74,14 @@ type Term id_t = Tree.Tree (NodeLabel id_t)
 -- | Make a UDrawGraph Term format of a Graph.
 makeTerm :: (Gr.Graph gr) =>
             (a -> String)
-         -> (a -> [(String,String)])
-         -> [Gr.Node]
-         -> gr a b
-         -> [Term TermId]
-makeTerm f_class                -- ^ Function to get the class of a Node
-         f_attribs              -- ^ Function to get the attributes of a Node
-         starts                 -- ^ The starting nodes
-         g                      -- ^ The graph
+         -> (a -> [(String,String)]) -- ^ Function to get the class of a Node
+         -> [Gr.Node]                -- ^ Function to get the attributes of a Node
+         -> gr a b                   -- ^ The starting nodes
+         -> [Term TermId]            -- ^ The graph
+makeTerm f_class
+         f_attribs
+         starts
+         g
     -- The type variables in the signature of gfold are in this case:
     -- c = [Term TermId]
     -- d = Term TermId
