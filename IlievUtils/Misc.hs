@@ -73,6 +73,7 @@ module IlievUtils.Misc (
         scanM,
         unfoldrM,
         replicateM,
+        iterateM,
         sumM,
         iterateWhileM,
         takeWhileM,
@@ -150,11 +151,12 @@ import qualified    Text.PrettyPrint            as PP
 
 
 
--- give a predicate which is an 'and' of two predicates
+-- | give a predicate which is an 'and' of two predicates
 infixr 3 .&&
 (.&&) :: (a -> Bool) -> (a -> Bool) -> (a -> Bool)
 f .&& g = \x -> f x && g x
 
+-- | give a predicate which is an 'or' of two predicates
 infixr 4 .||
 f .|| g = \x -> f x || g x
 
@@ -177,20 +179,18 @@ enumAll = undefined
 --     fromInteger f = fromInteger . f
 
 
--- join two arithmetic operations with a multiply
+-- | join two arithmetic operations with a multiply
 infixl 7 .*
 (.*) :: (Num a) => (a -> a) -> (a -> a) -> (a -> a)
 f .* g = \x -> f x * g x
 
 
--- return a predicate which is the 'not' of another predicate
+-- | return a predicate which is the 'not' of another predicate
 notp :: (a -> Bool) -> (a -> Bool)
 notp f = not . f
 
 
--- operator to build strings
-
--- first a cousin of the Show class specially for this purpose
+-- | a cousin of the 'Show' class specially for building strings
 class StreamShow a where
     strShows :: a -> ShowS
     strShow  :: a -> String
@@ -216,19 +216,20 @@ instance (StreamShow a, StreamShow b) => StreamShow (a,b) where
                         strShows ")"
 
 
+-- | append two streamable values together.
 (<<) :: (StreamShow a, StreamShow b) => (a -> b -> String)
 x << y = strShow x ++ strShow y
 --    where cleanup = (filter ((/= '"')))
 
 
 
--- like >>= except the function is outside the monad, so this puts in a "return" for us
+-- | like >>= except the function is outside the monad, so this puts in a "return" for us
 infixl 1  >>==
 (>>==) :: (Monad m) => m a -> (a -> b) -> m b
 k >>== f    = k >>= return . f
 
 
--- using the subtraction operator applied to one arg is tricky (needs a flip, and
+-- | using the subtraction operator applied to one arg is tricky (needs a flip, and
 -- something like (- x) is taken as (negate x)), hence:
 subtr x = \y -> y - x
 
@@ -244,7 +245,7 @@ instance Show String where
 -}
 
 
--- compose a function on 2 args with a function on one arg
+-- | compose a function on 2 args with a function on one arg.
 -- same fixity as (.)
 infixr 9 ...
 (...) :: (c -> d) -> (a -> b -> c) -> a -> b -> d
@@ -275,7 +276,7 @@ spanList p xs@(x:xs')
 breakList p = spanList (not . p)
 
 
--- filter some sublist out of a list
+-- | filter some sublist out of a list
 filterList :: (Eq a) => [a] -> [a] -> [a]
 filterList _   [] = []
 filterList bad xs = let (pre,badL) = breakList (bad `isPrefixOf`) xs
@@ -283,7 +284,7 @@ filterList bad xs = let (pre,badL) = breakList (bad `isPrefixOf`) xs
                     in pre ++ (filterList bad postBad)
 
 
--- iterate a function which produces a finite list, by re-applying it on each output, and
+-- | iterate a function which produces a finite list, by re-applying it on each output, and
 -- then concatenating
 iterateList :: (a -> [a]) -> a -> [a]
 iterateList f x = let fx = f x
@@ -292,7 +293,7 @@ iterateList f x = let fx = f x
 
 
 
--- a version of unfoldr for use in a Monad
+-- | a version of unfoldr for use in a Monad
 unfoldrM :: (Monad m)  =>  ( b -> m (Maybe (a, b)) )  ->  b  ->  m [a]
 unfoldrM f x  = do maybe_res <- f x
                    case maybe_res of
@@ -347,8 +348,8 @@ sumM = myLiftM sum
 concatMapM :: (Monad m) => (a -> m [b]) -> [a] -> m [b]
 concatMapM f = (liftM concat) . mapM f
 
--- remove duplicates in a list of Ord instance (ie. can be sorted); should be
--- much more efficient than List.nub, which is O(n^2)
+-- | remove duplicates in a list of 'Ord' instance (ie. can be sorted). should be
+-- | much more efficient than 'List.nub', which is O(n^2)
 nubOrds :: (Ord a) => [a] -> [a]
 nubOrds = map head . List.group . List.sort
 
@@ -410,7 +411,7 @@ extractOne   p  xs = let (matches, rest) = partition p xs
                          (m1:m_rest)   -> (Just m1, m_rest++rest)
 
 
--- substitute a sublist for another list
+-- | substitute a sublist for another list
 tr :: (Eq a) => ([a],[a]) -> [a] -> [a]
 tr _         [] = []
 tr (from,to) xs = let (pre,badL)        = breakList (from `isPrefixOf`) xs
@@ -432,9 +433,10 @@ strictList ls@(a : more) = seq a $ seq (strictList more) $ ls
 strictList ls = ls
 
 -- | force a strict evaluation of a value, returning it
+strictEval :: a -> a
 strictEval x = x `seq` x
 
--- apply f to (Maybe x), using def if x is Nothing
+-- | apply f to (Maybe x), using def if x is Nothing
 applyWithDefault :: (a -> a) -> a -> Maybe a -> a
 applyWithDefault f def x = case x of
                                Just x'  -> f x'
@@ -463,7 +465,7 @@ instance Stack [] where
     modtop = modifyListHead
 
 
--- integer division with rounding *up*
+-- | integer division with rounding *up*
 infixl 7 `divUp`
 divUp :: (Integral a) => a -> a -> a
 divUp x y = let (d,m) = divMod x y
@@ -471,9 +473,9 @@ divUp x y = let (d,m) = divMod x y
 
 
 
--- apply an operation successively down a list, until it does not fail, then
--- return that result
--- (which is what msum does, provided that "fail" is mzero)
+-- | apply an operation successively down a list, until it does not fail, then
+--   return that result.
+--   (which is what msum does, provided that "fail" is mzero)
 findInStack :: (MonadPlus m) => (a -> m b) -> [a] -> m b
 findInStack f stack = msum (map f stack)
 
@@ -490,13 +492,13 @@ liftArgM f m_x = do x <- m_x
                     f x
 
 
--- lift a function into a monad. The difference from liftM is that the result of myLiftM
+-- | lift a function into a monad. The difference from 'liftM' is that the result of myLiftM
 -- takes a value not in the monad, so it's useful on the RHS of >>= (among others)
 myLiftM :: (Monad m) => (a -> b) -> (a -> m b)
 myLiftM f x = return (f x)
 
 
--- like scanl, but for monadic functions
+-- | like 'scanl', but for monadic functions
 scanM            :: (Monad m) => (a -> b -> m a) -> a -> [b] -> m [a]
 scanM f a []     =  return [a]
 scanM f a (x:xs) =  do y    <- f a x
@@ -505,26 +507,27 @@ scanM f a (x:xs) =  do y    <- f a x
 
 
 
--- force a Map.lookup in the Maybe monad
+-- | force a Map.lookup in the Maybe monad
 maybeLookup :: Ord k => k -> [Map.Map k a] -> Maybe a
 maybeLookup key maps = findInStack (Map.lookup key) maps
 
 
 
--- a version of Map.adjust which tells if it changed anything or not (ie.
+-- | a version of Map.adjust which tells if it changed anything or not (ie.
 -- whether the key was found)
 maybeMapAdjust :: (MonadPlus m, Ord k) => (a -> a) -> k -> Map.Map k a -> m (Map.Map k a)
 maybeMapAdjust f k m    = if Map.member k m
                           then return $ Map.adjust f k m
                           else mzero
 
--- fromJust, with an error message in case of Nothing
+-- | fromJust, with an error message in case of Nothing
+fromJustMsg :: String -> Maybe a -> a
 fromJustMsg msg (Just x) = x
 fromJustMsg msg Nothing  = error $ "fromJust Nothing: " ++ msg
 
 
 
--- this version of map is mostly the identity, but the first time that f returns
+-- | this version of map is mostly the identity, but the first time that f returns
 -- non-Nothing we'll actually use that result.
 -- TODO: there must be a better way to do this with the Maybe monad
 mapOne :: (a -> Maybe a) -> [a] -> [a]
@@ -605,7 +608,7 @@ instance (Show a) => Appendable a where
 
 
 
--- if a list has predicate results: [F, F, F, T, T, ..., T, F, F,...],
+-- | if a list has predicate results: [F, F, F, T, T, ..., T, F, F,...],
 -- return the middle part that is True
 takeMiddle :: (a -> Bool) -> [a] -> [a]
 takeMiddle p = (takeWhile p) . (dropWhile (not . p))
@@ -614,11 +617,13 @@ log2 :: (Floating a) => a -> a
 log2 = logBase 2
 
 
--- wrap a numeric function so it takes and returns an Integral type (with rounding)
--- integerize :: (Num a, Num b, Integral c, Integral d) => (a -> b) -> (c -> d)
+-- | wrap a numeric function so it takes and returns an 'Integral' type
+-- by taking a 'ceiling'
+integerize :: (Num a, RealFrac b, Integral a_int, Integral b_int) =>
+              (a -> b) -> (a_int -> b_int)
 integerize f = ceiling . f . fromIntegral
 
--- same for function on 2 params
+-- | same for function on 2 params
 integerize2 f x y = ceiling $ f (fromIntegral x) (fromIntegral y) 
 
 
@@ -648,11 +653,15 @@ mapTupleM2 f (x,y) = do x' <- f x
                         return (x', y')
 
 -- | turn a pair of functions to a function on pairs
+proj_tup2 :: ((a -> b), (c -> d)) -> (a,c) -> (b,d)
 proj_tup2 (f,g) (x,y) = (f x, g y)
 
 
--- project a function onto members of a pair
+-- | project a function onto first of a pair
+projFst :: (a -> b) -> (a, c) -> (b, c)
 projFst f (x,y) = (f x, y  )
+-- | project a function onto second of a pair
+projSnd :: (a -> b) -> (c, a) -> (c, b)
 projSnd f (x,y) = (x  , f y)
 
 
@@ -660,14 +669,17 @@ projSnd f (x,y) = (x  , f y)
 factorial :: Integral a => a -> a
 factorial n = product [1..n]
 
--- using quot operator to make sure we get an integral result (which
+-- | binomial operation.
+-- using 'quot' operator to make sure we get an integral result (which
 -- should always be the case anyhow)
+choose :: (Integral a) => a -> a -> a
 choose n k = factorial n `quot` (factorial k * factorial (n-k))
 
 fib             = 1 : 1 : [ a+b | (a,b) <- zip fib (tail fib) ]
 
--- simple encapsulation for a summation with limit 'a' to 'b' and
+-- | simple encapsulation for a summation with limit 'a' to 'b' and
 -- summed function 'f'
+sumOp :: (Enum ctr, Num b) => (ctr -> b) -> ctr -> ctr -> b
 sumOp f a b = sum . map f $ [a..b]
 
 
@@ -675,19 +687,13 @@ runSumFrom0 :: (Num a) => [a] -> [a]
 runSumFrom0 = init . scanl (+) 0
 
 
--- update a range (offset and length) of a list.
--- more precisely, replace the range (offset,len) with 'news' (regardless of its length)
+-- | update a range (offset and length) of a list.
+-- more precisely, replace the range (offset,len) with news (regardless of its length, ie
+-- result length may differ from input length.)
+splice :: (Int, Int) -> [a] -> [a] -> [a]
 splice (offset,len) news l = (take offset l) ++
                              news ++
                              (drop (offset + len) l)
-
-
--- update a range (offset and length) of a list.
--- more precisely, replace the range (offset,len) with 'news' (regardless of its length)
-splice (offset,len) news l = (take offset l) ++
-                             news ++
-                             (drop (offset + len) l)
-
 
 -- | Splice in new values into a list (using a modifier function) where some predicate
 -- succeeds; if predicate fails, apply another function.
@@ -719,7 +725,7 @@ updateSome p = spliceInIf p (\old new -> new) id
 
 
 
--- map a function onto a sublist of a list, and another function on the rest.
+-- | map a function onto a sublist of a list, and another function on the rest.
 mapSplice :: (a -> b)           -- ^ map onto the sublist
           -> (a -> b)           -- ^ map onto the rest
           -> (Int,Int)          -- ^ the sublist location; offset and length.
@@ -776,19 +782,18 @@ bitMask :: Bits.Bits i => (Int,Int) -> i
 bitMask (i,j)     = ( Bits.complement ((Bits.complement 0) `Bits.shiftL` (j-i+1)) )  `Bits.shiftL` i
 
 
-
-
--- make a list from a tuple
+-- | make a list of 2 elements from a tuple.
+tuple2list2 :: (a,a) -> [a]
 tuple2list2 (x,y) = [x,y]
 
 
--- have a list of functions on 2 params, run them over a fixed pair of
+-- | have a list of functions on 2 params, run them over a fixed pair of
 -- parameters
 mapInputs2 :: a -> b -> [a -> b -> c] -> [c]
 mapInputs2 x y fs = map (\f -> f x y) fs
 
 
--- ! Monad version of Prelude.maybe
+-- | Monad version of Prelude.maybe
 maybeM :: (Monad m) => m b -> (a -> m b) -> Maybe a -> m b
 maybeM def f x = case x of Just x' -> f x'
                            Nothing -> def
@@ -802,8 +807,8 @@ oneof3 f1 f2 f3 x = case x of Num1 x -> f1 x
 
 
 
--- just a reminder, apply3 takes a function f and 3 params, and
--- applies f on the params
+-- | take a function f and 3 params, and apply f on the params
+apply3 :: (a -> b -> c -> d) -> a -> b -> c -> d
 apply3 = ((($).).)
 
 
@@ -844,7 +849,8 @@ expand :: [(a, [b])] -> [(a,b)]
 expand xs = foldr f [] xs
     where f (a,bs) dones = [(a,b) | b <- bs] ++ dones
 
--- | class of types which are convertable to a Doc for pretty-printing.
+-- | class of types which are convertable to a 'Text.PrettyPrint.Doc'
+-- for pretty-printing.
 class DocAble a where
     doc     :: a -> PP.Doc
 
